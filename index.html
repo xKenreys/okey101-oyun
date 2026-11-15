@@ -5,56 +5,60 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mehmetin Annesinin Ayak Parmağı</title>
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>if(!window.mqtt)document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"><\/script>')</script>
 <script>
-// Aynı arayüzü sunan hafif "Peer": WebRTC yerine herkese açık MQTT (WebSocket/TLS) aktarıcısı kullanır; NAT/VPN sorunu olmaz.
-const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'];
+// Aynı arayüzü sunan hafif "Peer": WebRTC yerine herkese açık MQTT (WebSocket/TLS) aktarıcılarını AYNI ANDA kullanır; hangisi engelli değilse o çalışır.
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081','wss://mqtt.eclipseprojects.io:443/mqtt'];
 function mkEv(o){const h={};o.on=(e,f)=>{(h[e]=h[e]||[]).push(f);return o};o.emit=(e,a)=>(h[e]||[]).forEach(f=>f(a));return o}
-function mqttOpen(bi,will){return new Promise((res,rej)=>{
-  let done=false;
-  const cl=mqtt.connect(BROKERS[bi],{clientId:'o'+Math.random().toString(36).slice(2,12),connectTimeout:7000,reconnectPeriod:2000,keepalive:20,will:{topic:will.topic,payload:will.payload,qos:0}});
-  cl.once('connect',()=>{done=true;res(cl)});
-  setTimeout(()=>{if(!done){cl.end(true);rej(new Error('timeout'))}},8000)})}
+function mqConn(url,will){
+  const opt={clientId:'o'+Math.random().toString(36).slice(2,12),connectTimeout:8000,reconnectPeriod:3000,keepalive:20};
+  if(will)opt.will={topic:will.topic,payload:will.payload,qos:0};
+  return mqtt.connect(url,opt)}
 function Peer(hostId){
   const me=mkEv(this),J=JSON.stringify;
+  if(typeof mqtt==='undefined'){setTimeout(()=>me.emit('error',{type:'network'}));return}
   if(typeof hostId==='string'){
-    const base=hostId.slice(8),P='okey101/'+base,conns={};
-    (async()=>{
-      let cl,bi=0;
-      for(;bi<BROKERS.length&&!cl;bi++){try{cl=await mqttOpen(bi,{topic:P+'/gone',payload:'1'})}catch(e){}}
-      if(!cl)return me.emit('error',{type:'network'});
-      bi--;me.code=base+'AB'[bi];
-      addEventListener('pagehide',()=>{try{cl.publish(P+'/gone','1')}catch(e){}});
-      cl.subscribe(P+'/h',()=>me.emit('open'));
-      cl.on('message',(t,buf)=>{
-        let d;try{d=JSON.parse(buf.toString())}catch(e){return}
-        const id=d.id;if(!id)return;let c=conns[id];
-        if(d.bye){if(c){delete conns[id];c.emit('close')}return}
-        if(d.j){
-          if(!c){c=conns[id]=mkEv({open:true,send:m=>cl.publish(P+'/c/'+id,J({m})),close:()=>{cl.publish(P+'/c/'+id,J({bye:1}));delete conns[id]}});
-            cl.publish(P+'/c/'+id,J({ack:1}));me.emit('connection',c);setTimeout(()=>c.emit('open'),0)}
-          else cl.publish(P+'/c/'+id,J({ack:1}));return}
-        if(c&&d.m)c.emit('data',d.m)})})();
+    const base=hostId.slice(8),P='okey101/'+base,conns={},cls=[];let opened=false;
+    me.code=base+'A';
+    const pubAll=(t,m)=>cls.forEach(c=>{if(c.connected)c.publish(t,m)});
+    const onMsg=(t,buf)=>{
+      let d;try{d=JSON.parse(buf.toString())}catch(e){return}
+      const id=d.id;if(!id)return;let c=conns[id];
+      if(d.bye){if(c){delete conns[id];c.emit('close')}return}
+      if(d.j){
+        if(!c){c=conns[id]=mkEv({open:true,send:m=>pubAll(P+'/c/'+id,J({m})),close:()=>{pubAll(P+'/c/'+id,J({bye:1}));delete conns[id]}});
+          me.emit('connection',c);setTimeout(()=>c.emit('open'),0)}
+        pubAll(P+'/c/'+id,J({ack:1}));return}
+      if(c&&d.m)c.emit('data',d.m)};
+    BROKERS.forEach(u=>{
+      const cl=mqConn(u,{topic:P+'/gone',payload:'1'});cls.push(cl);
+      cl.on('error',()=>{});
+      cl.on('connect',()=>cl.subscribe(P+'/h',()=>{if(!opened){opened=true;me.emit('open')}}));
+      cl.on('message',onMsg)});
+    addEventListener('pagehide',()=>pubAll(P+'/gone','1'));
+    setTimeout(()=>{if(!opened)me.emit('error',{type:'network'})},15000);
   }else{
     setTimeout(()=>me.emit('open'),0);
     me.connect=full=>{
-      const base=full.slice(8,13),bi='AB'.indexOf(full[13]),P='okey101/'+base,id='c'+Math.random().toString(36).slice(2,10);
-      let cl;const c=mkEv({open:false,send:m=>{if(cl)cl.publish(P+'/h',J({id,m}))},close:()=>{if(cl){cl.publish(P+'/h',J({id,bye:1}));cl.end()}}});
-      (async()=>{
-        if(bi<0)return me.emit('error',{type:'peer-unavailable'});
-        try{cl=await mqttOpen(bi,{topic:P+'/h',payload:J({id,bye:1})})}catch(e){return me.emit('error',{type:'network'})}
-        addEventListener('pagehide',()=>{try{cl.publish(P+'/h',J({id,bye:1}))}catch(e){}});
+      const base=full.slice(8,13),P='okey101/'+base,id='c'+Math.random().toString(36).slice(2,10),cls=[];let sel=null;
+      const c=mkEv({open:false,send:m=>{if(sel&&sel.connected)sel.publish(P+'/h',J({id,m}))},close:()=>{if(sel){sel.publish(P+'/h',J({id,bye:1}));sel.end()}}});
+      const pubJoin=()=>cls.forEach(x=>{if(x.connected&&(!sel||x===sel))x.publish(P+'/h',J({id,j:1}))});
+      BROKERS.forEach(u=>{
+        const cl=mqConn(u);cls.push(cl);
+        cl.on('error',()=>{});
+        cl.on('connect',()=>cl.subscribe([P+'/c/'+id,P+'/gone'],()=>{if(!sel&&!c.open)cl.publish(P+'/h',J({id,j:1}))}));
         cl.on('message',(t,buf)=>{
           let d;try{d=JSON.parse(buf.toString())}catch(e){return}
-          if(t===P+'/gone'){if(c.open){c.open=false;c.emit('close')}return}
-          if(d.ack&&!c.open){c.open=true;c.emit('open')}
-          else if(d.bye){if(c.open){c.open=false;c.emit('close')}}
-          else if(d.m&&c.open)c.emit('data',d.m)});
-        cl.subscribe([P+'/c/'+id,P+'/gone'],()=>{
-          let n=0;const iv=setInterval(()=>{
-            if(c.open)return clearInterval(iv);
-            if(++n>6){clearInterval(iv);return me.emit('error',{type:'peer-unavailable'})}
-            cl.publish(P+'/h',J({id,j:1}))},2000);
-          cl.publish(P+'/h',J({id,j:1}))})})();
+          if(t===P+'/gone'){if(c.open&&cl===sel){c.open=false;c.emit('close')}return}
+          if(d.ack&&!sel){sel=cl;cls.forEach(x=>{if(x!==cl)x.end(true)});c.open=true;c.emit('open');return}
+          if(cl!==sel)return;
+          if(d.bye){if(c.open){c.open=false;c.emit('close')}}
+          else if(d.m&&c.open)c.emit('data',d.m)})});
+      addEventListener('pagehide',()=>{if(sel)sel.publish(P+'/h',J({id,bye:1}))});
+      let n=0;const iv=setInterval(()=>{
+        if(c.open)return clearInterval(iv);
+        if(++n>9){clearInterval(iv);cls.forEach(x=>x.end(true));return me.emit('error',{type:'peer-unavailable'})}
+        pubJoin()},2500);
       return c}}}
 </script>
 <style>
