@@ -414,7 +414,7 @@ function liveStats(){
 
 function render(){
   const my=V.turn===V.me&&V.phase!=='over';
-  const bank=$('bank');bank.innerHTML='Banka<div class="stack">'+[3,2,1,0].map(i=>'<div style="left:'+i*1.5+'px;top:'+(-i*2)+'px"></div>').join('')+'</div><div class="row"></div><div style="font-size:11px;margin-top:4px">Gösterge</div>';
+  const bank=$('bank');bank.innerHTML='Banka<div class="stack">'+[3,2,1,0].map(i=>'<div style="left:'+i*1.5+'px;top:'+(-i*2)+'px"></div>').join('')+'</div><div style="font:700 14px Georgia,serif;color:#fff;margin:5px 0 3px">'+V.deckN+' taş</div><div class="row"></div><div style="font-size:11px;margin-top:4px">Gösterge</div>';
   bank.querySelector('.row').appendChild(tileEl(V.indicator,'sm'));
   bank.classList.toggle('glow',my&&V.phase==='draw');
   for(let r=0;r<4;r++){const s=(V.me+r)%4,el=$('p'+r),top=V.tops[s];el.replaceChildren();
