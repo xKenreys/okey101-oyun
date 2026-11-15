@@ -142,7 +142,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
     <button id="bUndo" onclick="act('undo')">↶ Geri al</button>
     <button id="bUndoAll" onclick="act('undoAll')">↺ Geri topla</button><button id="bPut" onclick="act('putBack')" style="display:none">↩ Taşı geri koy</button>
     <button id="bLay" onclick="layAll()">Hepsini Aç</button>
-    <button id="bSort" onclick="autoSort()">✨ Oto dizme</button>
+    <button id="bSort" onclick="autoSort('seri')">✨ Seri diz</button><button id="bSortP" onclick="autoSort('cift')">✨ Çift diz</button>
     <button id="bDiscard" onclick="discardSel()">🗑 Taş at</button>
   </div>
   <div id="over" class="overlay hidden"></div>
@@ -561,9 +561,19 @@ function dropMeld(me){
   act('add',{id:t.id,meld:me.id})}
 function layAll(){act('lay',{groups:segments().map(s=>s.map(t=>t.id))})}
 
-function autoSort(){
-  const h=rackTiles(),sol=solve(h,'win'),gs=groupsFrom(h,sol.path);
-  const used=new Set();gs.forEach(g=>g.cells.forEach(c=>used.add(c.t.id)));
+function autoSort(mode){
+  const h=rackTiles();let gs,used=new Set();
+  if(mode==='cift'){
+    const wl=h.filter(isWild),rs=h.filter(t=>!isWild(t)).sort((a,b)=>a.c-b.c||a.n-b.n);
+    gs=[];const lone=[];
+    for(let i=0;i<rs.length;i++){const j=rs.findIndex((x,k)=>k>i&&x&&x.c===rs[i].c&&x.n===rs[i].n&&!x.u);
+      if(rs[i].u)continue;
+      if(j>0){rs[j].u=1;rs[i].u=1;gs.push({cells:[{t:rs[i]},{t:rs[j]}]})}else lone.push(rs[i])}
+    rs.forEach(t=>delete t.u);
+    while(wl.length&&lone.length)gs.push({cells:[{t:lone.shift()},{t:wl.shift()}]});
+    if(wl.length>=2)gs.push({cells:[{t:wl.shift()},{t:wl.shift()}]});
+    gs.forEach(g=>g.cells.forEach(c=>used.add(c.t.id)));
+  }else{const sol=solve(h,'win');gs=groupsFrom(h,sol.path);gs.forEach(g=>g.cells.forEach(c=>used.add(c.t.id)))}
   const left=h.filter(t=>!used.has(t.id)).sort((a,b)=>a.c-b.c||a.n-b.n);
   const nr=Array(SLOTS).fill(null);let row=0,col=0;
   const put=t=>{if(col>14){row++;col=0}if(row>1)return false;nr[row*15+col++]=t;return true};
