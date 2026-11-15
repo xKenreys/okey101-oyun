@@ -24,7 +24,7 @@ html,body{margin:0;height:100%;background:#120a1f;font-family:Segoe UI,Arial,san
 .seat .box{background:linear-gradient(rgba(40,30,25,.92),rgba(15,10,8,.92));border:1px solid #6b5326;border-radius:8px;padding:6px 8px;font-size:13px;box-shadow:0 3px 8px rgba(0,0,0,.6)}
 .seat .nm{font-weight:700;font-size:15px}
 .seat.turn .av{border-color:#33d17a;box-shadow:0 0 18px #33d17a}
-#s2{left:465px;top:6px}#s3{left:20px;top:250px}#s1{left:910px;top:250px}
+#s2{left:465px;top:6px;z-index:5}#s3{left:20px;top:250px}#s1{left:910px;top:250px}
 #felt{position:absolute;left:150px;top:140px;width:800px;height:420px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px),repeating-linear-gradient(-45deg,rgba(0,0,0,.05) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 35%,#238556 0,#13583a 55%,#093523 100%);clip-path:polygon(7% 0,93% 0,100% 100%,0 100%);box-shadow:inset 0 0 60px rgba(0,0,0,.6)}
 #melds{position:absolute;left:190px;top:170px;width:720px;height:330px;display:flex;flex-wrap:wrap;gap:8px 18px;align-content:flex-start;overflow:hidden}
 .meld{display:flex;padding:3px;border-radius:5px;background:rgba(255,255,255,.07)}
@@ -315,7 +315,7 @@ function botPlay(skipDraw){
 function penalty(p){if(!opened[p])return 202;return hands[p].reduce((a,t)=>a+(isWild(t)?25:t.n),0)}
 function endRound(w){
   phase='over';clearTimeout(botTimer);
-  const delta=[0,1,2,3].map(p=>w===p?-101:penalty(p));
+  const delta=[0,1,2,3].map(p=>w===p?-101:w>=0&&(w+2)%4===p?0:penalty(p));
   delta.forEach((d,i)=>scores[i]+=d);
   overInfo={w,delta,scores:scores.slice()};broadcast()}
 
@@ -423,7 +423,7 @@ function render(){
     el.classList.toggle('glow',(r===3&&my&&V.phase==='draw'&&!!top)||(r===0&&my&&V.phase==='discard'))}
   for(let r=1;r<4;r++){const s=(V.me+r)%4,el=$('s'+r);
     el.innerHTML='<div class="av">'+AV[s]+'</div><div class="box"><div class="nm">'+V.names[s]+(V.kinds[s]==='bot'&&!/bot/.test(V.names[s])?' 🤖':'')+'</div>'+
-      (V.opened[s]==='cift'?'Çift açtı':V.opened[s]?'Seri açtı':'Açmadı')+'<br>Puan: '+V.scores[s]+'</div>';
+      (V.opened[s]==='cift'?'Çift açtı':V.opened[s]?'Seri açtı':'Açmadı')      +'<br>'+(r===2?'<b style="color:#e9c26a">Takım arkadaşın</b><br>':'')+'Takım puanı: '+tot(s)+'</div>';
     el.className='seat'+(V.turn===s?' turn':'')}
   const m=$('melds');m.replaceChildren();
   V.melds.forEach((me,mi)=>{const d=document.createElement('div');d.className='meld o'+rel(me.owner)+(mi>=lastMelds?' new':'');
@@ -443,7 +443,7 @@ function render(){
     rk.appendChild(sl)}
   const st=liveStats(),op=V.opened[V.me];
   if(V.melds.length>lastMelds)snd(420,.08);lastMelds=V.melds.length;
-  $('info').innerHTML='Seriler<br><b>'+st.seri+' / 101</b><br>Çiftler<br><b>'+st.pairs+' / 5</b><br><span style="opacity:.7;font-size:11px">'+(op?(op==='cift'?'Çift açtın':'Seri açtın'):'Açmadın')+' · Puan: '+V.scores[V.me]+'</span>';
+  $('info').innerHTML='Seriler<br><b>'+st.seri+' / 101</b><br>Çiftler<br><b>'+st.pairs+' / 5</b><br><span style="opacity:.7;font-size:11px">'+(op?(op==='cift'?'Çift açtın':'Seri açtın'):'Açmadın')+'<br>Takım puanı: '+tot(V.me)+'</span>';
   $('bar').className=my?'on':'';
   const d=V.phase==='discard'&&my;
   $('bDraw').disabled=!(my&&V.phase==='draw');
@@ -453,11 +453,13 @@ function render(){
   showMsg(V.event||(V.phase==='over'?'':my?(V.phase==='draw'?'Sıra sende: desteden ya da soldaki çöpten çek.':'Taşları diz, el aç ya da bir taş at.'):V.names[V.turn]+' oynuyor...'));
   const o=$('over');
   if(V.over){const w=V.over.w;o.classList.remove('hidden');
-    const rows=[0,1,2,3].map(p=>'<tr><td>'+V.names[p]+'</td><td>'+(V.over.delta[p]>0?'+':'')+V.over.delta[p]+'</td><td>'+V.over.scores[p]+'</td></tr>').join('');
-    o.innerHTML='<h2>'+(w===V.me?'🎉 Eli sen bitirdin!':w>=0?V.names[w]+' eli bitirdi':'Deste bitti, el berabere')+'</h2><table><tr><th></th><th>Bu el</th><th>Toplam</th></tr>'+rows+'</table>'+
+    const OD=V.over.delta,OS=V.over.scores;
+    const rows=[V.me,(V.me+1)%4].map(p=>{const q=(p+2)%4,d=OD[p]+OD[q];return '<tr><td>'+V.names[p]+' &amp; '+V.names[q]+(p===V.me?' (sizin takım)':'')+'</td><td>'+(d>0?'+':'')+d+'</td><td>'+(OS[p]+OS[q])+'</td></tr>'}).join('');
+    o.innerHTML='<h2>'+(w===V.me?'🎉 Eli sen bitirdin!':w>=0?(w+2)%4===V.me?'🎉 Takım arkadaşın eli bitirdi!':V.names[w]+' eli bitirdi':'Deste bitti, el berabere')+'</h2><table><tr><th>Takım</th><th>Bu el</th><th>Toplam</th></tr>'+rows+'</table>'+
       (V.host?'<button class="pri" onclick="act(\'next\')">Yeni El</button>':'<div class="small">Ev sahibinin yeni eli başlatması bekleniyor...</div>')}
   else o.classList.add('hidden')}
 
+function tot(s){return V.scores[s]+V.scores[(s+2)%4]}
 function drawDeck(){act('drawDeck')}
 function drawDiscard(){act('drawDiscard')}
 function dropSlot(i){
