@@ -332,7 +332,7 @@ function createRoom(){
   if(typeof Peer==='undefined')return lobbyErr('Bağlantı kütüphanesi yüklenemedi (internet gerekli).');
   isHost=true;mySeat=0;names[0]=myName();roomCode=rcode();
   lobbyErr('Oda kuruluyor...');
-  peer=new Peer('okey101-'+roomCode);
+  peer=new Peer('okey101-'+roomCode,PCFG);
   peer.on('error',e=>{if(e.type==='unavailable-id')createRoom();else lobbyErr('Bağlantı hatası: '+e.type)});
   peer.on('open',()=>{$('lobby').classList.add('hidden');showRoom()});
   peer.on('connection',c=>{
@@ -360,10 +360,11 @@ function joinRoom(){
   if(typeof Peer==='undefined')return lobbyErr('Bağlantı kütüphanesi yüklenemedi (internet gerekli).');
   const code=$('codeIn').value.trim().toUpperCase();if(code.length<4)return lobbyErr('Oda kodunu gir.');
   lobbyErr('Bağlanılıyor...');isHost=false;
-  peer=new Peer();
+  peer=new Peer(PCFG);
   peer.on('error',e=>lobbyErr(e.type==='peer-unavailable'?'Oda bulunamadı.':'Bağlantı hatası: '+e.type));
   peer.on('open',()=>{
     hostConn=peer.connect('okey101-'+code,{reliable:true});
+    setTimeout(()=>{if(!hostConn.open)lobbyErr('Bağlanılamadı. VPN/proxy varsa kapat, sayfayı yenileyip tekrar dene.')},20000);
     hostConn.on('open',()=>hostConn.send({t:'hello',name:myName()}));
     hostConn.on('data',d=>{
       if(d.t==='welcome'){mySeat=d.seat;$('lobby').classList.add('hidden');
@@ -459,6 +460,10 @@ function render(){
       (V.host?'<button class="pri" onclick="act(\'next\')">Yeni El</button>':'<div class="small">Ev sahibinin yeni eli başlatması bekleniyor...</div>')}
   else o.classList.add('hidden')}
 
+const PCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},
+  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
+  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]}};
 function tot(s){return V.scores[s]+V.scores[(s+2)%4]}
 function drawDeck(){act('drawDeck')}
 function drawDiscard(){act('drawDiscard')}
