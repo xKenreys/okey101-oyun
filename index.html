@@ -161,6 +161,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 const $=id=>document.getElementById(id);
 const AV=['🙂','🧔','👩','😎'],BOTN=['','Ali','Ayşe','Mehmet'],SLOTS=30;
 // ---------- Oyun durumu (yalnızca ev sahibinde anlamlı) ----------
+let sideTaken=null,preSide=null;
 let deck,hands,discards,melds,opened,turn,phase,indicator,okey,scores=[0,0,0,0],round=0,hist=[],played=0,maxR=5,stack=[],botTimer,mid=0,
     kinds=['human','empty','empty','empty'],names=['Sen','','',''],overInfo=null,event='',started=false;
 // ---------- İstemci durumu ----------
@@ -259,7 +260,7 @@ function newRound(){
   const start=round%4;round++;
   hands=[0,1,2,3].map(p=>deck.splice(0,p===start?22:21));
   discards=[[],[],[],[]];melds=[];opened=[null,null,null,null];overInfo=null;event='';
-  turn=start;stack=[snap()];
+  turn=start;stack=[snap()];sideTaken=null;preSide=null;
   if(kinds[start]==='human'){phase='discard'}else{phase='bot';botTimer=setTimeout(()=>botPlay(true),1200)}
   broadcast()}
 
@@ -284,15 +285,21 @@ function handleAction(p,a){
     case 'drawDiscard':{
       const pile=discards[(p+3)%4];
       if(phase!=='draw'||!pile.length)return;
-      addHand(p,pile.pop());phase='discard';stack=[snap()];break}
+      preSide=snap();const st=pile.pop();sideTaken=st.id;
+      addHand(p,st);phase='discard';stack=[snap()];toast(p,'Yandan aldığın taşı bu tur açma/işleme için kullanmalısın.');break}
     case 'discard':{
       const t=hd.find(x=>x.id===a.id);
       if(phase!=='discard'||!t)return;
+      if(sideTaken!==null&&hd.some(x=>x.id===sideTaken))return toast(p,'Yandan aldığın taşı açmada kullanmadan taş atamazsın. (Hepsini Geri Al ile vazgeçebilirsin.)');
       removeHand(p,t);discards[p].push(t);
       if(!hands[p].length)return endRound(p);
       return nextTurn()}
     case 'undo':if(phase==='discard'&&stack.length>1){restore(stack.pop())}break;
-    case 'undoAll':if(phase==='discard'&&stack.length>1){restore(stack[0]);stack=[stack[0]]}break;
+    case 'undoAll':
+      if(phase!=='discard')break;
+      if(sideTaken!==null&&preSide){restore(preSide);phase='draw';stack=[];sideTaken=null;preSide=null}
+      else if(stack.length>1){restore(stack[0]);stack=[stack[0]]}
+      break;
     case 'add':{
       if(phase!=='discard')return;
       const t=hd.find(x=>x.id===a.id),me=melds.find(m=>m.id===a.meld);
@@ -336,7 +343,7 @@ function tryAdd(p,t,me){
   me.cells=g.cells;removeHand(p,t);return true}
 
 function nextTurn(){
-  stack=[];turn=(turn+1)%4;
+  stack=[];sideTaken=null;preSide=null;turn=(turn+1)%4;
   if(kinds[turn]==='human'){phase='draw';stack=[]}
   else{phase='bot';botTimer=setTimeout(()=>botPlay(false),1200)}
   broadcast()}
@@ -497,7 +504,7 @@ function render(){
     if(t){const e=tileEl(t,i===selIdx?'sel':'');e.draggable=true;
       e.ondragstart=ev=>{dragIdx=i;ev.dataTransfer.setData('text','x')};
       e.onclick=()=>{selIdx=selIdx===i?null:i;render()};
-      e.ondblclick=()=>{selIdx=i;discardSel()};sl.appendChild(e)}
+      e.ondblclick=()=>{if(isWild(rack[i]))return;selIdx=i;discardSel()};sl.appendChild(e)}
     rk.appendChild(sl)}
   const st=liveStats(),op=V.opened[V.me];
   if(V.melds.length>lastMelds)snd(420,.08);lastMelds=V.melds.length;
