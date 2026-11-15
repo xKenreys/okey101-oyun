@@ -430,7 +430,7 @@ function showRoom(){
   const rows=[0,1,2,3].map(i=>'<tr><td>'+AV[i]+'</td><td>'+(kinds[i]==='empty'?'<i>boş (bot olur)</i>':names[i])+'</td></tr>').join('');
   for(let i=1;i<4;i++)if(conns[i]&&kinds[i]==='human')conns[i].send({t:'room',kinds,names});
   $('room').classList.remove('hidden');
-  $('room').innerHTML='<div>Oda kodu</div><div id="code">'+roomCode+'</div><div class="small">Arkadaşların bu kodu "Odaya Katıl"a girsin ya da şu linki açsın:<br><b>'+link+'</b></div><table>'+rows+'</table><button class="pri" onclick="hostStart()">Oyunu Başlat</button>'}
+  $('room').innerHTML='<div>Oda kodu</div><div id="code">'+roomCode+'</div><div class="small">Arkadaşların bu kodu "Odaya Katıl"a girsin ya da şu linki açsın:<br><b>'+link+'</b></div><table>'+rows+'</table><div class="small">Kaç el oynanacak: <select onchange="$(\'roundsIn\').value=this.value">'+[1,3,5,7,9,11].map(n=>'<option'+(n==$('roundsIn').value?' selected':'')+'>'+n+'</option>').join('')+'</select></div><button class="pri" onclick="hostStart()">Oyunu Başlat</button>'}
 function hostStart(){$('room').classList.add('hidden');startGame()}
 
 let lastRoom=null;
