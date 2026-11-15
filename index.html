@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mehmetin Annesinin Ayak Parmağı</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#120a1f;font-family:Segoe UI,Arial,sans-serif;color:#fff;overflow:hidden}
+#wrap{width:100vw;height:100vh}
+#stage{position:relative;width:1100px;height:800px;transform-origin:0 0;background:radial-gradient(ellipse at 50% 15%,rgba(255,200,120,.22) 0,transparent 45%),radial-gradient(ellipse at 50% 100%,#2b1a12 0,#150d0a 60%,#080504 100%)}
+#stage::before{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 45%,rgba(0,0,0,.65) 100%)}
+#rim{position:absolute;left:128px;top:128px;width:844px;height:452px;clip-path:polygon(7% 0,93% 0,100% 100%,0 100%);background:repeating-linear-gradient(88deg,rgba(0,0,0,.12) 0 2px,transparent 2px 9px),linear-gradient(#a06b3a,#5a3418 45%,#2e1a0b);box-shadow:inset 0 3px 0 rgba(255,255,255,.2)}
+@keyframes drop{from{transform:translateY(-46px) rotate(-8deg) scale(1.25);opacity:0}to{transform:none;opacity:1}}
+@keyframes appear{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+.pile .tile.new{animation:drop .3s ease-out}
+.meld.new{animation:appear .35s ease-out}
+.stack{position:relative;width:44px;height:62px;margin:0 auto}
+.stack div{position:absolute;width:44px;height:62px;border-radius:7px;background:linear-gradient(155deg,#e9c26a,#b98a2c);box-shadow:0 2px 0 #7a5a18,0 4px 5px rgba(0,0,0,.5)}
+#brand{position:absolute;left:0;right:0;top:430px;opacity:.55;text-align:center;font:italic 700 15px Georgia,serif;color:#d9b45a;letter-spacing:2px;text-shadow:0 2px 3px #000;pointer-events:none;z-index:3}
+.seat{position:absolute;text-align:center;width:170px}
+.seat .av{width:84px;height:84px;margin:0 auto 4px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#5a4570,#241833);border:4px solid #d4a73c;box-shadow:0 4px 10px rgba(0,0,0,.7),inset 0 0 12px rgba(0,0,0,.6);font-size:48px;line-height:76px}
+.seat .box{background:linear-gradient(rgba(40,30,25,.92),rgba(15,10,8,.92));border:1px solid #6b5326;border-radius:8px;padding:6px 8px;font-size:13px;box-shadow:0 3px 8px rgba(0,0,0,.6)}
+.seat .nm{font-weight:700;font-size:15px}
+.seat.turn .av{border-color:#33d17a;box-shadow:0 0 18px #33d17a}
+#s2{left:465px;top:6px}#s3{left:20px;top:250px}#s1{left:910px;top:250px}
+#felt{position:absolute;left:150px;top:140px;width:800px;height:420px;background:repeating-linear-gradient(45deg,rgba(255,255,255,.03) 0 1px,transparent 1px 3px),repeating-linear-gradient(-45deg,rgba(0,0,0,.05) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 35%,#238556 0,#13583a 55%,#093523 100%);clip-path:polygon(7% 0,93% 0,100% 100%,0 100%);box-shadow:inset 0 0 60px rgba(0,0,0,.6)}
+#melds{position:absolute;left:190px;top:170px;width:720px;height:330px;display:flex;flex-wrap:wrap;gap:8px 18px;align-content:flex-start;overflow:hidden}
+.meld{display:flex;padding:3px;border-radius:5px;background:rgba(255,255,255,.07)}
+.meld.o1{border-bottom:3px solid #33d17a}.meld.o2{border-bottom:3px solid #e6a100}.meld.o3{border-bottom:3px solid #1e88e5}.meld.o0{border-bottom:3px solid #fff}
+.meld.drop{background:rgba(51,209,122,.35)}
+.pile{position:absolute;width:44px;height:62px}
+#p2{left:170px;top:150px}#p1{left:886px;top:150px}#p3{left:150px;top:500px}#p0{left:906px;top:500px}
+.pile.glow .tile,.pile.glow .empty{box-shadow:0 0 0 3px #33d17a}
+.tile{width:44px;height:62px;border-radius:7px;background:linear-gradient(155deg,#fffef6 0%,#f4ecd2 50%,#e3d6ad 100%);box-shadow:inset 0 1px 0 #fff,inset 0 -3px 4px rgba(120,100,50,.25),inset 1px 0 0 rgba(255,255,255,.7),0 3px 0 #b3a063,0 6px 7px rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:28px;text-shadow:0 1px 0 rgba(255,255,255,.8),0 -1px 0 rgba(0,0,0,.18);user-select:none;cursor:grab;position:relative;transition:transform .12s}
+.tile:hover{transform:translateY(-3px)}
+.tile i{font-style:normal;font-size:0;width:17px;height:17px;border-radius:50%;border:2px solid currentColor;margin-top:3px;background:radial-gradient(circle,currentColor 0 28%,transparent 32%);box-shadow:0 1px 0 rgba(255,255,255,.7)}
+.tile.big{font-size:34px}
+.tile.sm{width:34px;height:48px;font-size:20px;line-height:22px;cursor:pointer}
+.tile.sm i{width:12px;height:12px;font-size:0}
+.tile.sel{transform:translateY(-12px);box-shadow:inset 0 1px 0 #fff,0 3px 0 #b3a063,0 0 0 3px #f0b92c,0 10px 12px rgba(0,0,0,.6)}
+.tile.wild::after{content:'';position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:#2ecc71}
+.empty{width:44px;height:62px;border:2px dashed #4a4a4a;border-radius:5px}
+.c0{color:#d62828}.c1{color:#222}.c2{color:#1e88e5}.c3{color:#e6a100}
+#rackbox{position:absolute;left:230px;top:570px;width:700px}
+#bar{height:6px;background:#12a150;margin-bottom:4px;opacity:.15;border-radius:3px}
+#bar.on{opacity:1}
+#rack{background:repeating-linear-gradient(92deg,rgba(0,0,0,.08) 0 2px,transparent 2px 7px),linear-gradient(#9a6a3c,#6b4423 45%,#4a2d15);border-radius:8px;padding:10px 12px 14px;display:grid;grid-template-columns:repeat(15,44px);gap:10px 1px;border:2px solid #2e1a0b;box-shadow:inset 0 2px 0 rgba(255,255,255,.25),0 10px 18px rgba(0,0,0,.65)}
+.slot{width:44px;height:62px;border-radius:5px;background:rgba(30,15,5,.35);box-shadow:inset 0 3px 5px rgba(0,0,0,.5)}
+.slot.over{background:rgba(51,209,122,.3)}
+#info{position:absolute;left:50px;top:600px;width:160px;background:linear-gradient(rgba(40,30,25,.92),rgba(15,10,8,.92));border-radius:8px;padding:10px;font-size:13px;text-align:center;line-height:1.5;border:1px solid #6b5326;box-shadow:0 4px 10px rgba(0,0,0,.6)}
+#info b{font-size:15px}
+#bank{position:absolute;left:955px;top:570px;width:110px;background:#0f9d58;border-radius:8px;padding:6px;text-align:center;font-weight:700;font-size:13px;cursor:pointer}
+#bank .row{display:flex;justify-content:center;margin-top:4px}
+#bank.glow{box-shadow:0 0 14px #fff}
+#bar2{position:absolute;left:0;right:0;top:740px;display:flex;justify-content:center;gap:10px}
+button{background:#1f1f2b;color:#ddd;border:1px solid #444;border-radius:6px;padding:12px 20px;font-weight:700;font-size:14px;cursor:pointer}
+button{box-shadow:0 3px 6px rgba(0,0,0,.5)}
+button.pri{background:linear-gradient(#f7cc4a,#b8860b);color:#2a1a00;border:0;box-shadow:0 3px 0 #7a5a08,0 6px 8px rgba(0,0,0,.5)}
+button:disabled{opacity:.35;cursor:not-allowed}
+#msg{position:absolute;left:250px;top:530px;width:600px;text-align:center;font-size:16px;color:#ffe082;text-shadow:0 1px 3px #000;z-index:2}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:9;font-size:18px}
+.overlay h2{margin:0;font-size:32px}
+.overlay table{border-collapse:collapse;min-width:380px}.overlay td,.overlay th{padding:6px 14px;border-bottom:1px solid #444}
+.overlay input{padding:10px;font-size:18px;border-radius:6px;border:1px solid #555;background:#1a1a26;color:#fff;text-align:center}
+.hidden{display:none!important}
+#code{font-size:46px;letter-spacing:8px;font-weight:800;color:#f0b92c}
+.small{font-size:13px;opacity:.75;max-width:520px;text-align:center}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <div class="seat" id="s2"></div><div class="seat" id="s3"></div><div class="seat" id="s1"></div>
+  <div id="rim"></div><div id="felt"></div><div id="brand">MEHMETİN ANNESİNİN AYAK PARMAĞI</div>
+  <div id="msg"></div>
+  <div id="melds"></div>
+  <div class="pile" id="p2"></div><div class="pile" id="p1"></div>
+  <div class="pile" id="p3" onclick="drawDiscard()"></div>
+  <div class="pile" id="p0" ondragover="event.preventDefault()" ondrop="dropDiscard(event)"></div>
+  <div id="info"></div>
+  <div id="rackbox"><div id="bar"></div><div id="rack"></div></div>
+  <div id="bank" onclick="drawDeck()"></div>
+  <div id="bar2">
+    <button class="pri" id="bDraw" onclick="drawDeck()">✋ Taş al</button>
+    <button id="bUndo" onclick="act('undo')">↶ Geri al</button>
+    <button id="bUndoAll" onclick="act('undoAll')">↺ Geri topla</button>
+    <button id="bLay" onclick="layAll()">Hepsini Aç</button>
+    <button id="bSort" onclick="autoSort()">✨ Oto dizme</button>
+    <button id="bDiscard" onclick="discardSel()">🗑 Taş at</button>
+  </div>
+  <div id="over" class="overlay hidden"></div>
+  <div id="lobby" class="overlay">
+    <h2>🀄 Mehmetin Annesinin Ayak Parmağı</h2><div class="small">101 Okey</div>
+    <input id="nameIn" placeholder="Adın" maxlength="12">
+    <div style="display:flex;gap:10px"><button class="pri" onclick="createRoom()">Oda Kur</button>
+      <button class="pri" onclick="soloGame()">Botlara Karşı Oyna</button></div>
+    <div style="display:flex;gap:10px"><input id="codeIn" placeholder="Oda kodu" maxlength="5" style="width:150px;text-transform:uppercase"><button onclick="joinRoom()">Odaya Katıl</button></div>
+    <div id="lobbyMsg" class="small"></div>
+  </div>
+  <div id="room" class="overlay hidden"></div>
+</div></div>
+<script>
+const $=id=>document.getElementById(id);
+const AV=['🙂','🧔','👩','😎'],BOTN=['','Ali','Ayşe','Mehmet'],SLOTS=30;
+// ---------- Oyun durumu (yalnızca ev sahibinde anlamlı) ----------
+let deck,hands,discards,melds,opened,turn,phase,indicator,okey,scores=[0,0,0,0],round=0,stack=[],botTimer,mid=0,
+    kinds=['human','empty','empty','empty'],names=['Sen','','',''],overInfo=null,event='',started=false;
+// ---------- İstemci durumu ----------
+let isHost=false,mySeat=0,V=null,rack=Array(SLOTS).fill(null),selIdx=null,dragIdx=null;
+let peer,conns=[null,null,null,null],hostConn,roomCode='';
+
+const isWild=t=>!t.fake&&t.c===okey.c&&t.n===okey.n;
+
+function mkDeck(){const t=[];let id=0;
+  for(let k=0;k<2;k++)for(let c=0;c<4;c++)for(let n=1;n<=13;n++)t.push({id:id++,c,n,fake:false});
+  t.push({id:id++,c:0,n:1,fake:true},{id:id++,c:0,n:1,fake:true});return t}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+
+// ---------- Per doğrulama ----------
+function evalGroup(tiles){
+  if(tiles.length<3||tiles.length>13)return null;
+  const wl=tiles.filter(isWild),reals=tiles.filter(t=>!isWild(t));
+  if(!reals.length)return null;
+  if(tiles.length<=4&&reals.every(t=>t.n===reals[0].n)){
+    const n=reals[0].n,cs=new Set(reals.map(t=>t.c));
+    if(cs.size===reals.length){
+      const free=[0,1,2,3].filter(c=>!cs.has(c));
+      const cells=reals.map(t=>({t,c:t.c,n}));let k=0;
+      wl.forEach(t=>cells.push({t,c:free[k++],n}));
+      return{type:'set',cells,pts:n*tiles.length}}}
+  const c=reals[0].c;if(!reals.every(t=>t.c===c))return null;
+  for(const hi of [false,true]){
+    if(hi&&!reals.some(t=>t.n===1))continue;
+    const vals=reals.map(t=>({t,v:hi&&t.n===1?14:t.n})).sort((a,b)=>a.v-b.v);
+    if(vals.some((x,i)=>i&&x.v===vals[i-1].v))continue;
+    const mn=vals[0].v,mx=vals[vals.length-1].v,total=tiles.length;
+    if(mx-mn+1-reals.length>wl.length)continue;
+    const lo=hi?2:1,top=hi?14:13,s=Math.min(mn,top-total+1);
+    if(s<lo)continue;
+    const cells=[];let k=0,pts=0;
+    for(let pos=s;pos<s+total;pos++){const r=vals.find(x=>x.v===pos);
+      cells.push({t:r?r.t:wl[k++],c,n:pos>13?1:pos});pts+=pos}
+    return{type:'run',cells,pts}}
+  return null}
+function evalPair(tiles){
+  if(tiles.length!==2)return null;
+  const reals=tiles.filter(t=>!isWild(t));
+  if(reals.length===2&&(reals[0].c!==reals[1].c||reals[0].n!==reals[1].n))return null;
+  const r=reals[0]||{c:okey.c,n:okey.n};
+  return{type:'pair',cells:tiles.map(t=>({t,c:r.c,n:r.n})),pts:r.n*2}}
+
+// ---------- Çözücü (botlar ve oto dizme) ----------
+const CANDS=(()=>{const L=[];
+  for(let n=1;n<=13;n++)for(const s of [[0,1,2],[0,1,3],[0,2,3],[1,2,3],[0,1,2,3]])L.push({cells:s.map(c=>[c,n]),pts:n*s.length});
+  for(let c=0;c<4;c++)for(let s=1;s<=13;s++)for(let len=3;s+len-1<=13;len++){
+    const cells=[];let p=0;for(let i=0;i<len;i++){cells.push([c,s+i]);p+=s+i}L.push({cells,pts:p})}
+  return L})();
+function solve(hd,mode){
+  const cnt=[...Array(4)].map(()=>Array(14).fill(0));let wild=0;
+  for(const t of hd){if(isWild(t))wild++;else cnt[t.c][t.n]++}
+  let best={used:0,pts:0,path:[]},nodes=0;const path=[];
+  const better=(u,p)=>mode==='open'?(p>best.pts||(p===best.pts&&u>best.used)):(u>best.used||(u===best.used&&p>best.pts));
+  (function dfs(i,w,used,pts){
+    if(better(used,pts))best={used,pts,path:path.slice()};
+    if(++nodes>5000||(mode==='win'&&used>=hd.length))return;
+    for(let k=i;k<CANDS.length;k++){
+      const g=CANDS[k],taken=[];
+      for(const cl of g.cells)if(cnt[cl[0]][cl[1]]>0){cnt[cl[0]][cl[1]]--;taken.push(cl)}
+      const need=g.cells.length-taken.length;
+      if(taken.length>0&&need<=w){path.push(k);dfs(k,w-need,used+g.cells.length,pts+g.pts);path.pop()}
+      for(const cl of taken)cnt[cl[0]][cl[1]]++}
+  })(0,wild,0,0);
+  return best}
+function groupsFrom(hd,path){
+  const pool=hd.slice(),out=[];
+  for(const k of path){const sel=[];
+    for(const [c,n] of CANDS[k].cells){
+      let i=pool.findIndex(t=>!isWild(t)&&t.c===c&&t.n===n);
+      if(i<0)i=pool.findIndex(isWild);
+      sel.push(pool.splice(i,1)[0])}
+    const g=evalGroup(sel);if(g)out.push(g)}
+  return out}
+
+// =====================================================
+//  EV SAHİBİ: oyun motoru
+// =====================================================
+function removeHand(p,t){hands[p]=hands[p].filter(x=>x.id!==t.id)}
+function addHand(p,t){hands[p].push(t)}
+const snap=()=>structuredClone({deck,hands,discards,melds,opened});
+function restore(s){({deck,hands,discards,melds,opened}=structuredClone(s))}
+
+function startGame(){
+  for(let i=0;i<4;i++){if(kinds[i]==='empty'){kinds[i]='bot';names[i]=BOTN[i]}}
+  started=true;scores=[0,0,0,0];round=Math.floor(Math.random()*4);newRound()}
+function newRound(){
+  clearTimeout(botTimer);
+  deck=shuffle(mkDeck());
+  const ii=deck.findIndex(t=>!t.fake);indicator=deck.splice(ii,1)[0];
+  okey={c:indicator.c,n:indicator.n%13+1};
+  deck.forEach(t=>{if(t.fake){t.c=okey.c;t.n=okey.n}});
+  const start=round%4;round++;
+  hands=[0,1,2,3].map(p=>deck.splice(0,p===start?22:21));
+  discards=[[],[],[],[]];melds=[];opened=[null,null,null,null];overInfo=null;event='';
+  turn=start;stack=[snap()];
+  if(kinds[start]==='human'){phase='discard'}else{phase='bot';botTimer=setTimeout(()=>botPlay(true),1200)}
+  broadcast()}
+
+function viewFor(p){return{me:p,okey,indicator,deckN:deck.length,hand:hands[p],tops:discards.map(d=>d[d.length-1]||null),
+  melds,opened,turn,phase,scores,names,kinds,over:overInfo,event,host:p===0}}
+function broadcast(){
+  for(let s=1;s<4;s++)if(conns[s]&&kinds[s]==='human')conns[s].send({t:'view',v:viewFor(s)});
+  onView(viewFor(0))}
+function toast(p,text){if(p===0)showMsg(text);else if(conns[p])conns[p].send({t:'toast',text})}
+
+function handleAction(p,a){
+  if(!started)return;
+  if(a.type==='next'){if(p===0&&phase==='over')newRound();return}
+  if(phase==='over'||p!==turn||kinds[p]!=='human')return;
+  event='';
+  const hd=hands[p];
+  switch(a.type){
+    case 'drawDeck':
+      if(phase!=='draw')return;
+      if(!deck.length)return endRound(-1);
+      addHand(p,deck.pop());phase='discard';stack=[snap()];break;
+    case 'drawDiscard':{
+      const pile=discards[(p+3)%4];
+      if(phase!=='draw'||!pile.length)return;
+      addHand(p,pile.pop());phase='discard';stack=[snap()];break}
+    case 'discard':{
+      const t=hd.find(x=>x.id===a.id);
+      if(phase!=='discard'||!t)return;
+      removeHand(p,t);discards[p].push(t);
+      if(!hands[p].length)return endRound(p);
+      return nextTurn()}
+    case 'undo':if(phase==='discard'&&stack.length>1){restore(stack.pop())}break;
+    case 'undoAll':if(phase==='discard'&&stack.length>1){restore(stack[0]);stack=[stack[0]]}break;
+    case 'add':{
+      if(phase!=='discard')return;
+      const t=hd.find(x=>x.id===a.id),me=melds.find(m=>m.id===a.meld);
+      if(!t||!me)return;
+      if(!opened[p])return toast(p,'Önce el açmalısın.');
+      if(opened[p]==='cift')return toast(p,'Çift açtığın için taş işleyemezsin.');
+      stack.push(snap());
+      if(!tryAdd(p,t,me)){stack.pop();return toast(p,'Bu taş bu pere işlenemiyor.')}
+      if(!hands[p].length)return endRound(p);
+      break}
+    case 'lay':{
+      if(phase!=='discard')return;
+      const used=new Set(),series=[],pairs=[];
+      for(const ids of a.groups||[]){
+        const ts=ids.map(id=>hd.find(t=>t.id===id));
+        if(new Set(ids).size!==ids.length||ts.some(x=>!x||used.has(x.id)))return toast(p,'Geçersiz hamle.');
+        ts.forEach(t=>used.add(t.id));
+        const g=evalGroup(ts);if(g)series.push(g);else{const q=evalPair(ts);if(q)pairs.push(q)}}
+      let groups,type;
+      if(opened[p]==='cift')groups=pairs;
+      else if(opened[p]==='seri')groups=series;
+      else{const total=series.reduce((s,g)=>s+g.pts,0);
+        if(total>=101){type='seri';groups=series}
+        else if(pairs.length>=5){type='cift';groups=pairs}
+        else return toast(p,'El açmak için seriler 101 puan ya da 5 çift olmalı (şu an: '+total+' puan, '+pairs.length+' çift).')}
+      if(!groups.length)return toast(p,'Açılacak geçerli per yok.');
+      stack.push(snap());
+      if(type){opened[p]=type;event=names[p]+' el açtı.'}
+      for(const g of groups){g.cells.forEach(cl=>removeHand(p,cl.t));melds.push({id:mid++,owner:p,type:g.type,cells:g.cells})}
+      if(!hands[p].length)return endRound(p);
+      break}
+    default:return}
+  broadcast()}
+
+function tryAdd(p,t,me){
+  if(me.type==='pair')return false;
+  const wi=!isWild(t)?me.cells.findIndex(cl=>isWild(cl.t)&&cl.c===t.c&&cl.n===t.n):-1;
+  if(wi>=0){const w=me.cells[wi].t;me.cells[wi]={t,c:t.c,n:me.cells[wi].n};removeHand(p,t);addHand(p,w);return true}
+  const g=evalGroup(me.cells.map(c=>c.t).concat(t));
+  if(!g||g.type!==me.type)return false;
+  me.cells=g.cells;removeHand(p,t);return true}
+
+function nextTurn(){
+  stack=[];turn=(turn+1)%4;
+  if(kinds[turn]==='human'){phase='draw';stack=[]}
+  else{phase='bot';botTimer=setTimeout(()=>botPlay(false),1200)}
+  broadcast()}
+
+function potential(t,hd){let p=0;
+  for(const o of hd){if(o.id===t.id)continue;
+    if(o.c===t.c&&o.n!==t.n&&Math.abs(o.n-t.n)<=2)p+=2;
+    if(o.n===t.n&&o.c!==t.c)p+=2}
+  return p}
+function botLay(p,groups){for(const g of groups){g.cells.forEach(cl=>removeHand(p,cl.t));melds.push({id:mid++,owner:p,type:g.type,cells:g.cells})}}
+function botPlay(skipDraw){
+  const p=turn;event='';
+  if(!skipDraw){
+    const prev=discards[(p+3)%4],top=prev[prev.length-1];let took=false;
+    if(top&&solve([...hands[p],top],'win').used>solve(hands[p],'win').used){hands[p].push(prev.pop());took=true}
+    if(!took){if(!deck.length)return endRound(-1);hands[p].push(deck.pop())}}
+  if(!opened[p]){const s=solve(hands[p],'open');
+    if(s.pts>=101){opened[p]='seri';botLay(p,groupsFrom(hands[p],s.path));event=names[p]+' el açtı ('+s.pts+' puan).'}}
+  if(opened[p]){
+    const s=solve(hands[p],'win');botLay(p,groupsFrom(hands[p],s.path));
+    for(let pass=0;pass<4;pass++)for(const t of hands[p].slice())
+      if(!isWild(t)||hands[p].length===1)for(const me of melds)if(tryAdd(p,t,me))break}
+  if(!hands[p].length)return endRound(p);
+  const h=hands[p],sol=solve(h,'win'),usedIds=new Set(groupsFrom(h,sol.path).flatMap(g=>g.cells.map(c=>c.t.id)));
+  let pool=h.filter(t=>!usedIds.has(t.id)&&!isWild(t));if(!pool.length)pool=h.filter(t=>!isWild(t));if(!pool.length)pool=h;
+  let bt=pool[0],bs=1e9;
+  for(const t of pool){const s=potential(t,h)*10+t.n*0.1;if(s<bs){bs=s;bt=t}}
+  const bi=h.findIndex(t=>t.id===bt.id);
+  discards[p].push(h.splice(bi,1)[0]);
+  if(!h.length)return endRound(p);
+  nextTurn()}
+
+function penalty(p){if(!opened[p])return 202;return hands[p].reduce((a,t)=>a+(isWild(t)?25:t.n),0)}
+function endRound(w){
+  phase='over';clearTimeout(botTimer);
+  const delta=[0,1,2,3].map(p=>w===p?-101:penalty(p));
+  delta.forEach((d,i)=>scores[i]+=d);
+  overInfo={w,delta,scores:scores.slice()};broadcast()}
+
+// ---------- Bağlantı (PeerJS) ----------
+const rcode=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.random()*a.length|0];return s};
+const myName=()=>($('nameIn').value.trim()||'Oyuncu').slice(0,12);
+function lobbyErr(t){$('lobbyMsg').textContent=t}
+
+function soloGame(){
+  isHost=true;mySeat=0;names[0]=myName();kinds=['human','empty','empty','empty'];
+  $('lobby').classList.add('hidden');startGame()}
+
+function createRoom(){
+  if(typeof Peer==='undefined')return lobbyErr('Bağlantı kütüphanesi yüklenemedi (internet gerekli).');
+  isHost=true;mySeat=0;names[0]=myName();roomCode=rcode();
+  lobbyErr('Oda kuruluyor...');
+  peer=new Peer('okey101-'+roomCode);
+  peer.on('error',e=>{if(e.type==='unavailable-id')createRoom();else lobbyErr('Bağlantı hatası: '+e.type)});
+  peer.on('open',()=>{$('lobby').classList.add('hidden');showRoom()});
+  peer.on('connection',c=>{
+    c.on('open',()=>{
+      const s=[1,2,3].find(i=>kinds[i]==='empty');
+      if(started||!s){c.send({t:'full',text:started?'Oyun başladı.':'Oda dolu.'});setTimeout(()=>c.close(),300);return}
+      kinds[s]='human';conns[s]=c;names[s]='Oyuncu '+s;
+      c.send({t:'welcome',seat:s});showRoom();
+      c.on('data',d=>{if(d.t==='hello'){names[s]=String(d.name).slice(0,12);showRoom()}else if(d.t==='act')handleAction(s,d)});
+      c.on('close',()=>leave(s))})})}
+function leave(s){
+  conns[s]=null;
+  if(!started){kinds[s]='empty';names[s]='';showRoom();return}
+  kinds[s]='bot';names[s]=names[s]+' (bot)';
+  if(turn===s&&phase!=='over'){const skip=phase==='discard';phase='bot';clearTimeout(botTimer);botTimer=setTimeout(()=>botPlay(skip),800)}
+  broadcast()}
+function showRoom(){
+  const link=location.href.split('#')[0]+'#'+roomCode;
+  const rows=[0,1,2,3].map(i=>'<tr><td>'+AV[i]+'</td><td>'+(kinds[i]==='empty'?'<i>boş (bot olur)</i>':names[i])+'</td></tr>').join('');
+  $('room').classList.remove('hidden');
+  $('room').innerHTML='<div>Oda kodu</div><div id="code">'+roomCode+'</div><div class="small">Arkadaşların bu kodu "Odaya Katıl"a girsin ya da şu linki açsın:<br><b>'+link+'</b></div><table>'+rows+'</table><button class="pri" onclick="hostStart()">Oyunu Başlat</button>'}
+function hostStart(){$('room').classList.add('hidden');startGame()}
+
+function joinRoom(){
+  if(typeof Peer==='undefined')return lobbyErr('Bağlantı kütüphanesi yüklenemedi (internet gerekli).');
+  const code=$('codeIn').value.trim().toUpperCase();if(code.length<4)return lobbyErr('Oda kodunu gir.');
+  lobbyErr('Bağlanılıyor...');isHost=false;
+  peer=new Peer();
+  peer.on('error',e=>lobbyErr(e.type==='peer-unavailable'?'Oda bulunamadı.':'Bağlantı hatası: '+e.type));
+  peer.on('open',()=>{
+    hostConn=peer.connect('okey101-'+code,{reliable:true});
+    hostConn.on('open',()=>hostConn.send({t:'hello',name:myName()}));
+    hostConn.on('data',d=>{
+      if(d.t==='welcome'){mySeat=d.seat;$('lobby').classList.add('hidden');
+        $('room').classList.remove('hidden');$('room').innerHTML='<h2>Odaya katıldın ✔</h2><div>Ev sahibinin oyunu başlatması bekleniyor...</div>'}
+      else if(d.t==='full'){lobbyErr(d.text)}
+      else if(d.t==='view'){$('room').classList.add('hidden');onView(d.v)}
+      else if(d.t==='toast')showMsg(d.text)});
+    hostConn.on('close',()=>{$('over').classList.remove('hidden');$('over').innerHTML='<h2>Bağlantı koptu</h2><button class="pri" onclick="location.reload()">Yeniden başla</button>'})})}
+
+// =====================================================
+//  İSTEMCİ: arayüz
+// =====================================================
+function act(type,extra){const a=Object.assign({t:'act',type},extra||{});
+  if(isHost)handleAction(0,a);else if(hostConn)hostConn.send(a)}
+const rel=s=>(s-V.me+4)%4;
+const rackTiles=()=>rack.filter(Boolean);
+function showMsg(t){$('msg').textContent=t}
+let lastTops=[null,null,null,null],lastMelds=0,actx;
+function snd(f,d){try{actx=actx||new AudioContext();const o=actx.createOscillator(),g=actx.createGain();
+  o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.08,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d);
+  o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+d)}catch(e){}}
+
+function onView(v){
+  V=v;okey=v.okey;mySeat=v.me;
+  const byId=new Map(v.hand.map(t=>[t.id,t]));
+  rack=rack.map(t=>{if(t&&byId.has(t.id)){const n=byId.get(t.id);byId.delete(t.id);return n}return null});
+  for(const t of byId.values()){const i=rack.indexOf(null);rack[i]=t}
+  if(selIdx!==null&&!rack[selIdx])selIdx=null;
+  render()}
+
+function tileEl(t,cls=''){
+  const d=document.createElement('div');
+  d.className='tile c'+t.c+' '+cls+(isWild(t)?' wild':'')+(t.fake?' big':'');
+  d.innerHTML=t.fake?'★':t.n+'<i>★</i>';return d}
+function cellEl(cl){const d=document.createElement('div');
+  d.className='tile sm c'+cl.c+(isWild(cl.t)?' wild':'');d.innerHTML=cl.n+'<i>★</i>';return d}
+function segments(){
+  const segs=[];
+  for(let r=0;r<2;r++){let cur=[];
+    for(let i=r*15;i<=r*15+15;i++){
+      const t=i<r*15+15?rack[i]:null;
+      if(t)cur.push(t);else{if(cur.length)segs.push(cur);cur=[]}}}
+  return segs}
+function liveStats(){
+  let seri=0,pairs=0;
+  for(const s of segments()){const g=evalGroup(s);if(g)seri+=g.pts;else if(evalPair(s))pairs++}
+  return{seri,pairs}}
+
+function render(){
+  const my=V.turn===V.me&&V.phase!=='over';
+  const bank=$('bank');bank.innerHTML='Banka<div class="stack">'+[3,2,1,0].map(i=>'<div style="left:'+i*1.5+'px;top:'+(-i*2)+'px"></div>').join('')+'</div><div class="row"></div><div style="font-size:11px;margin-top:4px">Gösterge</div>';
+  bank.querySelector('.row').appendChild(tileEl(V.indicator,'sm'));
+  bank.classList.toggle('glow',my&&V.phase==='draw');
+  for(let r=0;r<4;r++){const s=(V.me+r)%4,el=$('p'+r),top=V.tops[s];el.replaceChildren();
+    if(top){const te=tileEl(top);if(lastTops[s]!==top.id){te.classList.add('new');snd(260,.05)}el.appendChild(te)}else{const e=document.createElement('div');e.className='empty';el.appendChild(e)}
+    lastTops[s]=top?top.id:null;
+    el.classList.toggle('glow',(r===3&&my&&V.phase==='draw'&&!!top)||(r===0&&my&&V.phase==='discard'))}
+  for(let r=1;r<4;r++){const s=(V.me+r)%4,el=$('s'+r);
+    el.innerHTML='<div class="av">'+AV[s]+'</div><div class="box"><div class="nm">'+V.names[s]+(V.kinds[s]==='bot'&&!/bot/.test(V.names[s])?' 🤖':'')+'</div>'+
+      (V.opened[s]==='cift'?'Çift açtı':V.opened[s]?'Seri açtı':'Açmadı')+'<br>Puan: '+V.scores[s]+'</div>';
+    el.className='seat'+(V.turn===s?' turn':'')}
+  const m=$('melds');m.replaceChildren();
+  V.melds.forEach((me,mi)=>{const d=document.createElement('div');d.className='meld o'+rel(me.owner)+(mi>=lastMelds?' new':'');
+    me.cells.forEach(cl=>d.appendChild(cellEl(cl)));
+    d.ondragover=e=>{e.preventDefault();d.classList.add('drop')};d.ondragleave=()=>d.classList.remove('drop');
+    d.ondrop=e=>{e.preventDefault();d.classList.remove('drop');dropMeld(me)};m.appendChild(d)});
+  const rk=$('rack');rk.replaceChildren();
+  for(let i=0;i<SLOTS;i++){
+    const sl=document.createElement('div');sl.className='slot';
+    sl.ondragover=e=>{e.preventDefault();sl.classList.add('over')};sl.ondragleave=()=>sl.classList.remove('over');
+    sl.ondrop=e=>{e.preventDefault();dropSlot(i)};
+    const t=rack[i];
+    if(t){const e=tileEl(t,i===selIdx?'sel':'');e.draggable=true;
+      e.ondragstart=ev=>{dragIdx=i;ev.dataTransfer.setData('text','x')};
+      e.onclick=()=>{selIdx=selIdx===i?null:i;render()};
+      e.ondblclick=()=>{selIdx=i;discardSel()};sl.appendChild(e)}
+    rk.appendChild(sl)}
+  const st=liveStats(),op=V.opened[V.me];
+  if(V.melds.length>lastMelds)snd(420,.08);lastMelds=V.melds.length;
+  $('info').innerHTML='Seriler<br><b>'+st.seri+' / 101</b><br>Çiftler<br><b>'+st.pairs+' / 5</b><br><span style="opacity:.7;font-size:11px">'+(op?(op==='cift'?'Çift açtın':'Seri açtın'):'Açmadın')+' · Puan: '+V.scores[V.me]+'</span>';
+  $('bar').className=my?'on':'';
+  const d=V.phase==='discard'&&my;
+  $('bDraw').disabled=!(my&&V.phase==='draw');
+  $('bDiscard').disabled=!(d&&selIdx!==null&&rack[selIdx]);
+  $('bLay').disabled=!d;$('bSort').disabled=false;
+  $('bUndo').disabled=$('bUndoAll').disabled=!d;
+  showMsg(V.event||(V.phase==='over'?'':my?(V.phase==='draw'?'Sıra sende: desteden ya da soldaki çöpten çek.':'Taşları diz, el aç ya da bir taş at.'):V.names[V.turn]+' oynuyor...'));
+  const o=$('over');
+  if(V.over){const w=V.over.w;o.classList.remove('hidden');
+    const rows=[0,1,2,3].map(p=>'<tr><td>'+V.names[p]+'</td><td>'+(V.over.delta[p]>0?'+':'')+V.over.delta[p]+'</td><td>'+V.over.scores[p]+'</td></tr>').join('');
+    o.innerHTML='<h2>'+(w===V.me?'🎉 Eli sen bitirdin!':w>=0?V.names[w]+' eli bitirdi':'Deste bitti, el berabere')+'</h2><table><tr><th></th><th>Bu el</th><th>Toplam</th></tr>'+rows+'</table>'+
+      (V.host?'<button class="pri" onclick="act(\'next\')">Yeni El</button>':'<div class="small">Ev sahibinin yeni eli başlatması bekleniyor...</div>')}
+  else o.classList.add('hidden')}
+
+function drawDeck(){act('drawDeck')}
+function drawDiscard(){act('drawDiscard')}
+function dropSlot(i){
+  if(dragIdx===null)return;[rack[i],rack[dragIdx]]=[rack[dragIdx],rack[i]];
+  if(selIdx===dragIdx)selIdx=i;dragIdx=null;render()}
+function dropDiscard(e){e.preventDefault();if(dragIdx!==null){selIdx=dragIdx;dragIdx=null;discardSel()}}
+function discardSel(){
+  if(selIdx===null||!rack[selIdx])return;
+  const id=rack[selIdx].id;selIdx=null;act('discard',{id})}
+function dropMeld(me){
+  if(dragIdx===null)return;const t=rack[dragIdx];dragIdx=null;if(!t)return;
+  act('add',{id:t.id,meld:me.id})}
+function layAll(){act('lay',{groups:segments().map(s=>s.map(t=>t.id))})}
+
+function autoSort(){
+  const h=rackTiles(),sol=solve(h,'win'),gs=groupsFrom(h,sol.path);
+  const used=new Set();gs.forEach(g=>g.cells.forEach(c=>used.add(c.t.id)));
+  const left=h.filter(t=>!used.has(t.id)).sort((a,b)=>a.c-b.c||a.n-b.n);
+  const nr=Array(SLOTS).fill(null);let row=0,col=0;
+  const put=t=>{if(col>14){row++;col=0}if(row>1)return false;nr[row*15+col++]=t;return true};
+  for(const s of gs.map(g=>g.cells.map(c=>c.t))){if(col+s.length>15){row++;col=0}for(const t of s)put(t);col++}
+  const rest=[];for(const t of left)if(!put(t))rest.push(t);
+  for(const t of rest){nr[nr.indexOf(null)]=t}
+  rack=nr;selIdx=null;render()}
+
+function fit(){const s=Math.min(innerWidth/1100,innerHeight/800),st=$('stage');st.style.transform='scale('+s+')';st.style.marginLeft=Math.max(0,(innerWidth-1100*s)/2)+'px'}
+addEventListener('resize',fit);fit();
+if(location.hash.length>=5)$('codeIn').value=location.hash.slice(1,6).toUpperCase();
+</script>
+</body>
+</html>
