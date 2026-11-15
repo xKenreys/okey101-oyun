@@ -130,7 +130,7 @@ function evalGroup(tiles){
       wl.forEach(t=>cells.push({t,c:free[k++],n}));
       return{type:'set',cells,pts:n*tiles.length}}}
   const c=reals[0].c;if(!reals.every(t=>t.c===c))return null;
-  for(const hi of [false,true]){
+  for(const hi of [false]){
     if(hi&&!reals.some(t=>t.n===1))continue;
     const vals=reals.map(t=>({t,v:hi&&t.n===1?14:t.n})).sort((a,b)=>a.v-b.v);
     if(vals.some((x,i)=>i&&x.v===vals[i-1].v))continue;
