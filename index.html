@@ -95,6 +95,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
     <input id="nameIn" placeholder="Adın" maxlength="12">
     <div style="display:flex;gap:10px"><button class="pri" onclick="createRoom()">Oda Kur</button>
       <button class="pri" onclick="soloGame()">Botlara Karşı Oyna</button></div>
+    <div class="small">Kaç el oynanacak: <select id="roundsIn" style="padding:6px;font-size:16px;background:#1a1a26;color:#fff;border-radius:6px"><option>1</option><option>3</option><option selected>5</option><option>7</option><option>9</option><option>11</option></select></div>
     <div style="display:flex;gap:10px"><input id="codeIn" placeholder="Oda kodu" maxlength="5" style="width:150px;text-transform:uppercase"><button onclick="joinRoom()">Odaya Katıl</button></div>
     <div id="lobbyMsg" class="small"></div>
   </div>
@@ -104,7 +105,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 const $=id=>document.getElementById(id);
 const AV=['🙂','🧔','👩','😎'],BOTN=['','Ali','Ayşe','Mehmet'],SLOTS=30;
 // ---------- Oyun durumu (yalnızca ev sahibinde anlamlı) ----------
-let deck,hands,discards,melds,opened,turn,phase,indicator,okey,scores=[0,0,0,0],round=0,stack=[],botTimer,mid=0,
+let deck,hands,discards,melds,opened,turn,phase,indicator,okey,scores=[0,0,0,0],round=0,hist=[],played=0,maxR=5,stack=[],botTimer,mid=0,
     kinds=['human','empty','empty','empty'],names=['Sen','','',''],overInfo=null,event='',started=false;
 // ---------- İstemci durumu ----------
 let isHost=false,mySeat=0,V=null,rack=Array(SLOTS).fill(null),selIdx=null,dragIdx=null;
@@ -192,7 +193,7 @@ function restore(s){({deck,hands,discards,melds,opened}=structuredClone(s))}
 
 function startGame(){
   for(let i=0;i<4;i++){if(kinds[i]==='empty'){kinds[i]='bot';names[i]=BOTN[i]}}
-  started=true;scores=[0,0,0,0];round=Math.floor(Math.random()*4);newRound()}
+  started=true;scores=[0,0,0,0];hist=[];played=0;maxR=+$('roundsIn').value||5;round=Math.floor(Math.random()*4);newRound()}
 function newRound(){
   clearTimeout(botTimer);
   deck=shuffle(mkDeck());
@@ -207,7 +208,7 @@ function newRound(){
   broadcast()}
 
 function viewFor(p){return{me:p,okey,indicator,deckN:deck.length,hand:hands[p],tops:discards.map(d=>d[d.length-1]||null),
-  melds,opened,turn,phase,scores,names,kinds,over:overInfo,event,host:p===0}}
+  melds,opened,turn,phase,scores,names,kinds,over:overInfo,event,host:p===0,played,maxR}}
 function broadcast(){
   for(let s=1;s<4;s++)if(conns[s]&&kinds[s]==='human')conns[s].send({t:'view',v:viewFor(s)});
   onView(viewFor(0))}
@@ -215,7 +216,7 @@ function toast(p,text){if(p===0)showMsg(text);else if(conns[p])conns[p].send({t:
 
 function handleAction(p,a){
   if(!started)return;
-  if(a.type==='next'){if(p===0&&phase==='over')newRound();return}
+  if(a.type==='next'){if(p===0&&phase==='over'){if(overInfo&&overInfo.final){scores=[0,0,0,0];hist=[];played=0}newRound()}return}
   if(phase==='over'||p!==turn||kinds[p]!=='human')return;
   event='';
   const hd=hands[p];
@@ -317,7 +318,8 @@ function endRound(w){
   phase='over';clearTimeout(botTimer);
   const delta=[0,1,2,3].map(p=>w===p?-101:w>=0&&(w+2)%4===p?0:penalty(p));
   delta.forEach((d,i)=>scores[i]+=d);
-  overInfo={w,delta,scores:scores.slice()};broadcast()}
+  hist.push([delta[0]+delta[2],delta[1]+delta[3]]);played++;
+  overInfo={w,delta,scores:scores.slice(),hist:hist.map(h=>h.slice()),final:played>=maxR};broadcast()}
 
 // ---------- Bağlantı (PeerJS) ----------
 const rcode=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.random()*a.length|0];return s};
@@ -444,7 +446,7 @@ function render(){
     rk.appendChild(sl)}
   const st=liveStats(),op=V.opened[V.me];
   if(V.melds.length>lastMelds)snd(420,.08);lastMelds=V.melds.length;
-  $('info').innerHTML='Seriler<br><b>'+st.seri+' / 101</b><br>Çiftler<br><b>'+st.pairs+' / 5</b><br><span style="opacity:.7;font-size:11px">'+(op?(op==='cift'?'Çift açtın':'Seri açtın'):'Açmadın')+'<br>Takım puanı: '+tot(V.me)+'</span>';
+  $('info').innerHTML='Seriler<br><b>'+st.seri+' / 101</b><br>Çiftler<br><b>'+st.pairs+' / 5</b><br><span style="opacity:.7;font-size:11px">'+(op?(op==='cift'?'Çift açtın':'Seri açtın'):'Açmadın')+'<br>El: '+Math.min(V.played+1,V.maxR)+' / '+V.maxR+' · Takım puanı: '+tot(V.me)+'</span>';
   $('bar').className=my?'on':'';
   const d=V.phase==='discard'&&my;
   $('bDraw').disabled=!(my&&V.phase==='draw');
@@ -454,10 +456,16 @@ function render(){
   showMsg(V.event||(V.phase==='over'?'':my?(V.phase==='draw'?'Sıra sende: desteden ya da soldaki çöpten çek.':'Taşları diz, el aç ya da bir taş at.'):V.names[V.turn]+' oynuyor...'));
   const o=$('over');
   if(V.over){const w=V.over.w;o.classList.remove('hidden');
-    const OD=V.over.delta,OS=V.over.scores;
-    const rows=[V.me,(V.me+1)%4].map(p=>{const q=(p+2)%4,d=OD[p]+OD[q];return '<tr><td>'+V.names[p]+' &amp; '+V.names[q]+(p===V.me?' (sizin takım)':'')+'</td><td>'+(d>0?'+':'')+d+'</td><td>'+(OS[p]+OS[q])+'</td></tr>'}).join('');
-    o.innerHTML='<h2>'+(w===V.me?'🎉 Eli sen bitirdin!':w>=0?(w+2)%4===V.me?'🎉 Takım arkadaşın eli bitirdi!':V.names[w]+' eli bitirdi':'Deste bitti, el berabere')+'</h2><table><tr><th>Takım</th><th>Bu el</th><th>Toplam</th></tr>'+rows+'</table>'+
-      (V.host?'<button class="pri" onclick="act(\'next\')">Yeni El</button>':'<div class="small">Ev sahibinin yeni eli başlatması bekleniyor...</div>')}
+    const OS=V.over.scores,H=V.over.hist,mi=V.me%2,pair=p=>V.names[p]+' &amp; '+V.names[(p+2)%4];
+    const f=n=>(n>0?'+':'')+n,mine=OS[V.me]+OS[(V.me+2)%4],theirs=OS[(V.me+1)%4]+OS[(V.me+3)%4];
+    const rows=H.map((h,i)=>'<tr><td>'+(i+1)+'. el</td><td>'+f(h[mi])+'</td><td>'+f(h[1-mi])+'</td></tr>').join('')+
+      '<tr style="font-weight:800;color:#f7cc4a"><td>Toplam</td><td>'+mine+'</td><td>'+theirs+'</td></tr>';
+    let title;
+    if(V.over.final){const win=mine<theirs?'Sizin takım':mine>theirs?'Rakip takım':'Berabere';
+      title='🏆 Oyun bitti! '+(mine===theirs?'Berabere':win+' kazandı (az puan kazanır)')}
+    else title=(w===V.me?'🎉 Eli sen bitirdin!':w>=0?(w+2)%4===V.me?'🎉 Takım arkadaşın eli bitirdi!':V.names[w]+' eli bitirdi':'Deste bitti, el berabere')+' ('+V.played+'/'+V.maxR+')';
+    o.innerHTML='<h2>'+title+'</h2><table><tr><th></th><th>'+pair(V.me)+'<br><small>sizin takım</small></th><th>'+pair((V.me+1)%4)+'</th></tr>'+rows+'</table>'+
+      (V.host?'<button class="pri" onclick="act(\'next\')">'+(V.over.final?'Yeni Oyun':'Sonraki El')+'</button>':'<div class="small">Ev sahibinin devam etmesi bekleniyor...</div>')}
   else o.classList.add('hidden')}
 
 const PCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},
