@@ -140,7 +140,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
   <div id="bar2">
     <button class="pri" id="bDraw" onclick="drawDeck()">✋ Taş al</button>
     <button id="bUndo" onclick="act('undo')">↶ Geri al</button>
-    <button id="bUndoAll" onclick="act('undoAll')">↺ Geri topla</button>
+    <button id="bUndoAll" onclick="act('undoAll')">↺ Geri topla</button><button id="bPut" onclick="act('putBack')" style="display:none">↩ Taşı geri koy</button>
     <button id="bLay" onclick="layAll()">Hepsini Aç</button>
     <button id="bSort" onclick="autoSort()">✨ Oto dizme</button>
     <button id="bDiscard" onclick="discardSel()">🗑 Taş at</button>
@@ -265,7 +265,7 @@ function newRound(){
   broadcast()}
 
 function viewFor(p){return{me:p,okey,indicator,deckN:deck.length,hand:hands[p],tops:discards.map(d=>d[d.length-1]||null),
-  melds,opened,turn,phase,scores,names,kinds,over:overInfo,event,host:p===0,played,maxR}}
+  melds,opened,turn,phase,side:sideTaken!==null&&p===turn&&hands[p].some(x=>x.id===sideTaken),scores,names,kinds,over:overInfo,event,host:p===0,played,maxR}}
 function broadcast(){
   for(let s=1;s<4;s++)if(conns[s]&&kinds[s]==='human')conns[s].send({t:'view',v:viewFor(s)});
   onView(viewFor(0))}
@@ -290,17 +290,14 @@ function handleAction(p,a){
     case 'discard':{
       const t=hd.find(x=>x.id===a.id);
       if(phase!=='discard'||!t)return;
-      if(sideTaken!==null&&hd.some(x=>x.id===sideTaken))return toast(p,'Yandan aldığın taşı açmada kullanmadan taş atamazsın. (Hepsini Geri Al ile vazgeçebilirsin.)');
+      if(sideTaken!==null&&hd.some(x=>x.id===sideTaken))return toast(p,'Yandan aldığın taşı açmada kullanmadan taş atamazsın. ("Taşı geri koy" ile vazgeçebilirsin.)');
       removeHand(p,t);discards[p].push(t);
       discardPen(p,t);
       if(!hands[p].length)return endRound(p);
       return nextTurn()}
     case 'undo':if(phase==='discard'&&stack.length>1){restore(stack.pop())}break;
-    case 'undoAll':
-      if(phase!=='discard')break;
-      if(sideTaken!==null&&preSide){restore(preSide);phase='draw';stack=[];sideTaken=null;preSide=null}
-      else if(stack.length>1){restore(stack[0]);stack=[stack[0]]}
-      break;
+    case 'undoAll':if(phase==='discard'&&stack.length>1){restore(stack[0]);stack=[stack[0]]}break;
+    case 'putBack':if(phase==='discard'&&sideTaken!==null&&preSide){restore(preSide);phase='draw';stack=[];sideTaken=null;preSide=null}break;
     case 'add':{
       if(phase!=='discard')return;
       const t=hd.find(x=>x.id===a.id),me=melds.find(m=>m.id===a.meld);
@@ -533,7 +530,7 @@ function render(){
   $('bDraw').disabled=!(my&&V.phase==='draw');
   $('bDiscard').disabled=!(d&&selIdx!==null&&rack[selIdx]);
   $('bLay').disabled=!d;$('bSort').disabled=false;
-  $('bUndo').disabled=$('bUndoAll').disabled=!d;
+  $('bUndo').disabled=$('bUndoAll').disabled=!d;$('bPut').style.display=V.side&&d?'':'none';
   showMsg(V.event||(V.phase==='over'?'':my?(V.phase==='draw'?'Sıra sende: desteden ya da soldaki çöpten çek.':'Taşları diz, el aç ya da bir taş at.'):V.names[V.turn]+' oynuyor...'));
   const o=$('over');
   if(V.over){const w=V.over.w;o.classList.remove('hidden');
