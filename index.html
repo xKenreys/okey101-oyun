@@ -4,7 +4,59 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Mehmetin Annesinin Ayak Parmağı</title>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+// Aynı arayüzü sunan hafif "Peer": WebRTC yerine herkese açık MQTT (WebSocket/TLS) aktarıcısı kullanır; NAT/VPN sorunu olmaz.
+const BROKERS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt'];
+function mkEv(o){const h={};o.on=(e,f)=>{(h[e]=h[e]||[]).push(f);return o};o.emit=(e,a)=>(h[e]||[]).forEach(f=>f(a));return o}
+function mqttOpen(bi,will){return new Promise((res,rej)=>{
+  let done=false;
+  const cl=mqtt.connect(BROKERS[bi],{clientId:'o'+Math.random().toString(36).slice(2,12),connectTimeout:7000,reconnectPeriod:2000,keepalive:20,will:{topic:will.topic,payload:will.payload,qos:0}});
+  cl.once('connect',()=>{done=true;res(cl)});
+  setTimeout(()=>{if(!done){cl.end(true);rej(new Error('timeout'))}},8000)})}
+function Peer(hostId){
+  const me=mkEv(this),J=JSON.stringify;
+  if(typeof hostId==='string'){
+    const base=hostId.slice(8),P='okey101/'+base,conns={};
+    (async()=>{
+      let cl,bi=0;
+      for(;bi<BROKERS.length&&!cl;bi++){try{cl=await mqttOpen(bi,{topic:P+'/gone',payload:'1'})}catch(e){}}
+      if(!cl)return me.emit('error',{type:'network'});
+      bi--;me.code=base+'AB'[bi];
+      addEventListener('pagehide',()=>{try{cl.publish(P+'/gone','1')}catch(e){}});
+      cl.subscribe(P+'/h',()=>me.emit('open'));
+      cl.on('message',(t,buf)=>{
+        let d;try{d=JSON.parse(buf.toString())}catch(e){return}
+        const id=d.id;if(!id)return;let c=conns[id];
+        if(d.bye){if(c){delete conns[id];c.emit('close')}return}
+        if(d.j){
+          if(!c){c=conns[id]=mkEv({open:true,send:m=>cl.publish(P+'/c/'+id,J({m})),close:()=>{cl.publish(P+'/c/'+id,J({bye:1}));delete conns[id]}});
+            cl.publish(P+'/c/'+id,J({ack:1}));me.emit('connection',c);setTimeout(()=>c.emit('open'),0)}
+          else cl.publish(P+'/c/'+id,J({ack:1}));return}
+        if(c&&d.m)c.emit('data',d.m)})})();
+  }else{
+    setTimeout(()=>me.emit('open'),0);
+    me.connect=full=>{
+      const base=full.slice(8,13),bi='AB'.indexOf(full[13]),P='okey101/'+base,id='c'+Math.random().toString(36).slice(2,10);
+      let cl;const c=mkEv({open:false,send:m=>{if(cl)cl.publish(P+'/h',J({id,m}))},close:()=>{if(cl){cl.publish(P+'/h',J({id,bye:1}));cl.end()}}});
+      (async()=>{
+        if(bi<0)return me.emit('error',{type:'peer-unavailable'});
+        try{cl=await mqttOpen(bi,{topic:P+'/h',payload:J({id,bye:1})})}catch(e){return me.emit('error',{type:'network'})}
+        addEventListener('pagehide',()=>{try{cl.publish(P+'/h',J({id,bye:1}))}catch(e){}});
+        cl.on('message',(t,buf)=>{
+          let d;try{d=JSON.parse(buf.toString())}catch(e){return}
+          if(t===P+'/gone'){if(c.open){c.open=false;c.emit('close')}return}
+          if(d.ack&&!c.open){c.open=true;c.emit('open')}
+          else if(d.bye){if(c.open){c.open=false;c.emit('close')}}
+          else if(d.m&&c.open)c.emit('data',d.m)});
+        cl.subscribe([P+'/c/'+id,P+'/gone'],()=>{
+          let n=0;const iv=setInterval(()=>{
+            if(c.open)return clearInterval(iv);
+            if(++n>6){clearInterval(iv);return me.emit('error',{type:'peer-unavailable'})}
+            cl.publish(P+'/h',J({id,j:1}))},2000);
+          cl.publish(P+'/h',J({id,j:1}))})})();
+      return c}}}
+</script>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:#120a1f;font-family:Segoe UI,Arial,sans-serif;color:#fff;overflow:hidden}
@@ -96,7 +148,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
     <div style="display:flex;gap:10px"><button class="pri" onclick="createRoom()">Oda Kur</button>
       <button class="pri" onclick="soloGame()">Botlara Karşı Oyna</button></div>
     <div class="small">Kaç el oynanacak: <select id="roundsIn" style="padding:6px;font-size:16px;background:#1a1a26;color:#fff;border-radius:6px"><option>1</option><option>3</option><option selected>5</option><option>7</option><option>9</option><option>11</option></select></div>
-    <div style="display:flex;gap:10px"><input id="codeIn" placeholder="Oda kodu" maxlength="5" style="width:150px;text-transform:uppercase"><button onclick="joinRoom()">Odaya Katıl</button></div>
+    <div style="display:flex;gap:10px"><input id="codeIn" placeholder="Oda kodu" maxlength="6" style="width:150px;text-transform:uppercase"><button onclick="joinRoom()">Odaya Katıl</button></div>
     <div id="lobbyMsg" class="small"></div>
   </div>
   <div id="room" class="overlay hidden"></div>
@@ -334,9 +386,9 @@ function createRoom(){
   if(typeof Peer==='undefined')return lobbyErr('Bağlantı kütüphanesi yüklenemedi (internet gerekli).');
   isHost=true;mySeat=0;names[0]=myName();roomCode=rcode();
   lobbyErr('Oda kuruluyor...');
-  peer=new Peer('okey101-'+roomCode,PCFG);
-  peer.on('error',e=>{if(e.type==='unavailable-id')createRoom();else lobbyErr('Bağlantı hatası: '+e.type)});
-  peer.on('open',()=>{$('lobby').classList.add('hidden');showRoom()});
+  peer=new Peer('okey101-'+roomCode);
+  peer.on('error',e=>lobbyErr('Bağlantı hatası: '+e.type));
+  peer.on('open',()=>{roomCode=peer.code;$('lobby').classList.add('hidden');showRoom()});
   peer.on('connection',c=>{
     c.on('open',()=>{
       const s=[1,2,3].find(i=>kinds[i]==='empty');
@@ -360,13 +412,12 @@ function hostStart(){$('room').classList.add('hidden');startGame()}
 
 function joinRoom(){
   if(typeof Peer==='undefined')return lobbyErr('Bağlantı kütüphanesi yüklenemedi (internet gerekli).');
-  const code=$('codeIn').value.trim().toUpperCase();if(code.length<4)return lobbyErr('Oda kodunu gir.');
+  const code=$('codeIn').value.trim().toUpperCase();if(code.length<6)return lobbyErr('Oda kodunu gir (6 karakter).');
   lobbyErr('Bağlanılıyor...');isHost=false;
-  peer=new Peer(PCFG);
-  peer.on('error',e=>lobbyErr(e.type==='peer-unavailable'?'Oda bulunamadı.':'Bağlantı hatası: '+e.type));
+  peer=new Peer();
+  peer.on('error',e=>lobbyErr(e.type==='peer-unavailable'?'Oda bulunamadı (kod yanlış ya da ev sahibi sayfayı kapatmış).':'Bağlantı hatası: '+e.type));
   peer.on('open',()=>{
-    hostConn=peer.connect('okey101-'+code,{reliable:true});
-    setTimeout(()=>{if(!hostConn.open)lobbyErr('Bağlanılamadı. VPN/proxy varsa kapat, sayfayı yenileyip tekrar dene.')},20000);
+    hostConn=peer.connect('okey101-'+code);
     hostConn.on('open',()=>hostConn.send({t:'hello',name:myName()}));
     hostConn.on('data',d=>{
       if(d.t==='welcome'){mySeat=d.seat;$('lobby').classList.add('hidden');
@@ -468,10 +519,6 @@ function render(){
       (V.host?'<button class="pri" onclick="act(\'next\')">'+(V.over.final?'Yeni Oyun':'Sonraki El')+'</button>':'<div class="small">Ev sahibinin devam etmesi bekleniyor...</div>')}
   else o.classList.add('hidden')}
 
-const PCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'},
-  {urls:'turn:openrelay.metered.ca:80',username:'openrelayproject',credential:'openrelayproject'},
-  {urls:'turn:openrelay.metered.ca:443',username:'openrelayproject',credential:'openrelayproject'},
-  {urls:'turn:openrelay.metered.ca:443?transport=tcp',username:'openrelayproject',credential:'openrelayproject'}]}};
 function tot(s){return V.scores[s]+V.scores[(s+2)%4]}
 function drawDeck(){act('drawDeck')}
 function drawDiscard(){act('drawDiscard')}
@@ -500,7 +547,7 @@ function autoSort(){
 
 function fit(){const s=Math.min(innerWidth/1100,innerHeight/800),st=$('stage');st.style.transform='scale('+s+')';st.style.marginLeft=Math.max(0,(innerWidth-1100*s)/2)+'px'}
 addEventListener('resize',fit);fit();
-if(location.hash.length>=5)$('codeIn').value=location.hash.slice(1,6).toUpperCase();
+if(location.hash.length>=7)$('codeIn').value=location.hash.slice(1,7).toUpperCase();
 </script>
 </body>
 </html>
