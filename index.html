@@ -161,7 +161,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 const $=id=>document.getElementById(id);
 const AV=['🙂','🧔','👩','😎'],BOTN=['','Ali','Ayşe','Mehmet'],SLOTS=30;
 // ---------- Oyun durumu (yalnızca ev sahibinde anlamlı) ----------
-let sideTaken=null,preSide=null;
+let sideTaken=null,preSide=null,pen=[0,0,0,0];
 let deck,hands,discards,melds,opened,turn,phase,indicator,okey,scores=[0,0,0,0],round=0,hist=[],played=0,maxR=5,stack=[],botTimer,mid=0,
     kinds=['human','empty','empty','empty'],names=['Sen','','',''],overInfo=null,event='',started=false;
 // ---------- İstemci durumu ----------
@@ -260,7 +260,7 @@ function newRound(){
   const start=round%4;round++;
   hands=[0,1,2,3].map(p=>deck.splice(0,p===start?22:21));
   discards=[[],[],[],[]];melds=[];opened=[null,null,null,null];overInfo=null;event='';
-  turn=start;stack=[snap()];sideTaken=null;preSide=null;
+  turn=start;stack=[snap()];sideTaken=null;preSide=null;pen=[0,0,0,0];
   if(kinds[start]==='human'){phase='discard'}else{phase='bot';botTimer=setTimeout(()=>botPlay(true),1200)}
   broadcast()}
 
@@ -292,6 +292,7 @@ function handleAction(p,a){
       if(phase!=='discard'||!t)return;
       if(sideTaken!==null&&hd.some(x=>x.id===sideTaken))return toast(p,'Yandan aldığın taşı açmada kullanmadan taş atamazsın. (Hepsini Geri Al ile vazgeçebilirsin.)');
       removeHand(p,t);discards[p].push(t);
+      discardPen(p,t);
       if(!hands[p].length)return endRound(p);
       return nextTurn()}
     case 'undo':if(phase==='discard'&&stack.length>1){restore(stack.pop())}break;
@@ -368,18 +369,28 @@ function botPlay(skipDraw){
       if(!isWild(t)||hands[p].length===1)for(const me of melds)if(tryAdd(p,t,me))break}
   if(!hands[p].length)return endRound(p);
   const h=hands[p],sol=solve(h,'win'),usedIds=new Set(groupsFrom(h,sol.path).flatMap(g=>g.cells.map(c=>c.t.id)));
-  let pool=h.filter(t=>!usedIds.has(t.id)&&!isWild(t));if(!pool.length)pool=h.filter(t=>!isWild(t));if(!pool.length)pool=h;
+  let pool=h.filter(t=>!usedIds.has(t.id)&&!isWild(t)&&!canAdd(t));if(!pool.length)pool=h.filter(t=>!usedIds.has(t.id)&&!isWild(t));if(!pool.length)pool=h.filter(t=>!isWild(t));if(!pool.length)pool=h;
   let bt=pool[0],bs=1e9;
   for(const t of pool){const s=potential(t,h)*10+t.n*0.1;if(s<bs){bs=s;bt=t}}
   const bi=h.findIndex(t=>t.id===bt.id);
-  discards[p].push(h.splice(bi,1)[0]);
+  const dt=h.splice(bi,1)[0];discards[p].push(dt);discardPen(p,dt);
   if(!h.length)return endRound(p);
   nextTurn()}
 
+function canAdd(t){
+  if(isWild(t))return false;
+  return melds.some(me=>{
+    if(me.type==='pair')return false;
+    if(me.cells.some(cl=>isWild(cl.t)&&cl.c===t.c&&cl.n===t.n))return true;
+    const g=evalGroup(me.cells.map(c=>c.t).concat(t));return !!g&&g.type===me.type})}
+function discardPen(p,t){
+  if(isWild(t)){pen[p]+=101;event=names[p]+' okey attı: +101 ceza!';return 'Okey attın: +101 ceza!'}
+  if(canAdd(t)){pen[p]+=101;event=names[p]+' işlenebilir taş attı: +101 ceza!';return 'Açılmış bir pere işlenebilecek taş attın: +101 ceza!'}
+  return ''}
 function penalty(p){if(!opened[p])return 202;return hands[p].reduce((a,t)=>a+(isWild(t)?25:t.n),0)}
 function endRound(w){
   phase='over';clearTimeout(botTimer);
-  const delta=[0,1,2,3].map(p=>w===p?-101:w>=0&&(w+2)%4===p?0:penalty(p));
+  const delta=[0,1,2,3].map(p=>(w===p?-101:w>=0&&(w+2)%4===p?0:penalty(p))+pen[p]);
   delta.forEach((d,i)=>scores[i]+=d);
   hist.push([delta[0]+delta[2],delta[1]+delta[3]]);played++;
   overInfo={w,delta,scores:scores.slice(),hist:hist.map(h=>h.slice()),final:played>=maxR};broadcast()}
